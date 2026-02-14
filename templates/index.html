@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Productivity Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Premium Tilt Effect -->
+    <style>
+        .tilt {
+            transition: all 0.3s ease-out;
+        }
+
+        .tilt:hover {
+            transform: perspective(1000px) rotateX(2deg) rotateY(-2deg) scale(1.03);
+        }
+    </style>
+</head>
+
+<body class="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white font-sans min-h-screen">
+
+    <div class="max-w-7xl mx-auto px-4 py-8 bg-white/5 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/10">
+
+        <header class="mb-10 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-extrabold">CCTV Worker Productivity</h1>
+                <p class="text-slate-400">Real-time AI Event Monitoring</p>
+            </div>
+
+            <div class="bg-gradient-to-r from-indigo-500 to-blue-500 px-4 py-2 rounded-lg font-mono text-sm shadow-lg">
+                System Online
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+
+            <!-- Total Output Card -->
+            <div class="tilt bg-gradient-to-r from-indigo-500/10 to-blue-500/10 p-8 rounded-2xl
+                        border border-indigo-400/20 shadow-lg hover:shadow-indigo-500/20">
+
+                <p class="text-slate-400 font-semibold uppercase text-xs tracking-wider">
+                    Total Factory Output
+                </p>
+
+                <p id="total-units" class="text-5xl font-black text-indigo-400">0</p>
+            </div>
+
+            <!-- Utilization Card -->
+            <div class="tilt bg-gradient-to-r from-emerald-500/10 to-teal-500/10 p-8 rounded-2xl
+                        border border-emerald-400/20 shadow-lg hover:shadow-emerald-500/20">
+
+                <p class="text-slate-400 font-semibold uppercase text-xs tracking-wider">
+                    Avg Factory Utilization
+                </p>
+
+                <p id="avg-util" class="text-5xl font-black text-emerald-400">0%</p>
+            </div>
+
+        </div>
+
+        <h2 class="text-xl font-bold mb-4 text-slate-200">Worker Productivity</h2>
+
+        <div class="bg-white/5 rounded-2xl shadow-lg border border-white/10 overflow-hidden">
+            <table class="w-full text-left">
+
+                <thead class="bg-white/5 border-b border-white/10">
+                    <tr>
+                        <th class="px-6 py-4 text-slate-400 text-sm">Worker ID</th>
+                        <th class="px-6 py-4 text-slate-400 text-sm">Utilization</th>
+                        <th class="px-6 py-4 text-slate-400 text-sm">Total Units</th>
+                    </tr>
+                </thead>
+
+                <tbody id="worker-body"></tbody>
+
+            </table>
+        </div>
+    </div>
+
+    <script>
+
+        let hasAnimated = false;
+
+        function animateValue(element, start, end, duration, suffix = '') {
+            let startTimestamp = null;
+
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                const value = Math.floor(progress * (end - start) + start);
+
+                element.innerText = value + suffix;
+
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+
+            window.requestAnimationFrame(step);
+        }
+
+        async function updateDashboard() {
+            try {
+                const res = await fetch('/api/metrics');
+                const data = await res.json();
+
+                /* Animate ONLY on first load */
+                if (!hasAnimated) {
+
+                    animateValue(
+                        document.getElementById('total-units'),
+                        0,
+                        data.factory.total_units,
+                        1000
+                    );
+
+                    animateValue(
+                        document.getElementById('avg-util'),
+                        0,
+                        parseInt(data.factory.avg_utilization),
+                        1000,
+                        '%'
+                    );
+
+                    hasAnimated = true;
+
+                } else {
+
+                    document.getElementById('total-units').innerText = data.factory.total_units;
+                    document.getElementById('avg-util').innerText = data.factory.avg_utilization;
+
+                }
+
+                const tbody = document.getElementById('worker-body');
+
+                tbody.innerHTML = data.workers.map(w => `
+                    <tr class="border-b border-white/5 transition duration-200
+                               hover:bg-indigo-500/10 hover:shadow-lg">
+
+                        <td class="px-6 py-4 text-slate-200">${w.id}</td>
+
+                        <td class="px-6 py-4">
+                            <span class="px-3 py-1 bg-emerald-500/10 text-emerald-300 rounded-full text-xs font-bold border border-emerald-400/20">
+                                ${w.utilization}
+                            </span>
+                        </td>
+
+                        <td class="px-6 py-4 text-slate-400 font-mono">
+                            ${w.units} units
+                        </td>
+                    </tr>
+                `).join('');
+
+            } catch (e) {
+                console.error("Update failed", e);
+            }
+        }
+
+        setInterval(updateDashboard, 3000);
+        updateDashboard();
+
+    </script>
+
+</body>
+</html>
